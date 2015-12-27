@@ -16,7 +16,15 @@ to collect a large amount of data about personal activity relatively
 inexpensively. In this project, your goal will be to use data from
 accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They
 were asked to perform barbell lifts correctly and incorrectly in 5 different
-ways. More information is available from the [website
+ways:
+
+> - Class A: exactly according to the specification
+> - Class B: throwing the elbows to the front
+> - Class C: lifting the dumbbell only halfway
+> - Class D: lowering the dumbbell only halfway
+> - Class E: throwing the hips to the front
+
+> More information is available from the [website
 here](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight
 Lifting Exercise Dataset).
 
@@ -37,7 +45,7 @@ library(ggplot2)
 ```
 
 As first thing, after downloading the files, we load the dataset in memory. We
-can check the frequencies of the outcome levels to get the idea of their
+can check the counts of the outcome levels to get the idea of their
 distribution.
 
 ```{r load, echo = FALSE}
@@ -65,17 +73,18 @@ trainSet <- read.csv(trainDest)
 
 # show frequencies of levels in classe factor variable (outcome)
 table(trainSet$classe)
+qplot(trainSet$classe)
 ```
 
 ## Preprocessing
 
 We preprocess the data to prepare a tidy dataset for modeling:
 
-1. remove variables with many NAs
-2. identify and remove unnecessary variables
-3. remove Near Zero-Variance predictors
-3. center and scale all variables
-4. split the data into training and validation
+1. remove variables with **many NAs**
+2. identify and remove **unnecessary variables**
+3. remove Near **Zero-Variance** predictors
+3. **center and scale** all variables
+4. split the data into **training and validation**
 
 After a quick exploratory analysis, we found that here variables have either no
 NAs or empty values, or about 0.98% of them; the latter are summary variables
@@ -84,10 +93,11 @@ combination with the value "yes" for the variable "new_window". Also, performing
 an analysis for Near Zero-Variance shows that most of these variables only have
 a handful of significant values, another reason to remove them.
 
-As result of this quick analysis, we will remove all the (100) colums with
-summary statistics, and by this we will get rid of all the NAs in the dataset.
+As result of this quick analysis, we will **remove all the (100) colums with
+summary statistics**, and by this we will get rid of all the NAs in the dataset.
 
-We will also remove the unnecessary descriptive variables (serial IDs, timestamps).
+We will also remove the **unnecessary descriptive variables** (serial IDs,
+timestamps, etc..).
 
 ```{r NAs}
 rem <- sapply(trainSet, function(x) {sum(is.na(x) | !(x != ""))/length(x)}) # NAs
@@ -96,10 +106,12 @@ rem[1:7] <- 1 # flag timestamp variables
 trainSet <- trainSet[, !(rem > 0)] # keep only informative and complete columns
 ```
 
-We split the training dataset in two parts: 70% will be used for model training,
-and the remaining 30% will be kept apart as a validation dataset, to compare the
-performance of different algorithms.
-Also, we will pre-process the data by centering and scaling all variables.
+We split the training dataset in two parts for **cross-validation**: *70%* will
+be used for model **training**, and the remaining *30%* will be kept apart as a
+**validation** dataset, to compare the performance of different algorithms.  
+
+Also, we will pre-process the data by **centering and scaling** all the
+remaining predictor variables.
 
 ```{r preprocess}
 set.seed(19780505) # set seed for reproducibility
@@ -115,11 +127,15 @@ validSetPre <- predict(prePr, validationS)
 
 ## Modeling
 
-We have readied a smaller dataset with 52 predictors and 1 categorical outcome. 
+We have readied a smaller dataset with **52 predictors** and 1 categorical
+outcome.  
+
 We build some models with "classe" as the outcome and the other variables left
-in the dataset as predictors. We will try different algorithms to compare their 
-performance. We will leverage the *caret* package to train them by using
-*10-fold cross-validation*.
+in the dataset as predictors. We want to try different algorithms to compare
+their performance.   
+
+We will leverage the *caret* package to train them by using
+*2-fold cross-validation* (I would use k = 10 but have no time to compile now!).
 
 ```{r setup}
 models <- list()
@@ -145,7 +161,7 @@ models[["rpart"]] <-
   train(classe ~ ., data = trainSetPre, method = "rpart", trControl = fitControl)
 ```
 
-```{r ctree, cache = TRUE, hide = TRUE, message = FALSE}
+```{r ctree, cache = TRUE}
 models[["ctree"]] <-
   train(classe ~ ., data = trainSetPre, method = "ctree", trControl = fitControl)
 ```
@@ -155,14 +171,14 @@ models[["svm"]] <-
   train(classe ~ ., data = trainSetPre, method = "svmLinear", trControl = fitControl)
 ```
 
-```{r rf, cache = TRUE, hide = TRUE, message = FALSE, eval=FALSE}
+```{r rf, cache = TRUE}
 models[["rf"]] <-
   train(classe ~ ., data = trainSetPre, method = "rf", trControl = fitControl)
 ```
 
 We compare the models outcome predicting on the validation dataset and comparing
 the accuracy of the prediction versus the actual *classe* value. The model that
-will yeald the best overall accuracy will be chosen.
+will yield the best overall **accuracy** will be chosen.
 
 ```{r compare, message = FALSE}
 results <- data.frame(model = names(models), accuracy = NA)
@@ -174,9 +190,9 @@ print(arrange(results, desc(accuracy))) # list models and accuracy in desc order
 best <- results[results[, 2] == max(results[, 2]),] # best model
 ```
 
-From the table above, Random Forest is the contest winner having achieved an
-impressive accuracy of `r best[1,2]` on validation data, which is our estimate
-for the out of sample error.  
+From the table above, **Random Forest** is the contest winner having achieved
+an impressive accuracy of `r best[1,2]` on validation data, which is our
+estimate for the **out of sample error**.  
 
 ### Analysis of the best model
 
@@ -201,7 +217,7 @@ visualize their density in relation with the different outcome levels in order
 to understand their predictive value.
 
 ```{r varImp, cache = TRUE}
-varImp(bestModel) # variables importance in the final model
+plot(varImp(bestModel), top = 20) # variables importance in the final model
 
 varImp <- varImp(bestModel)$importance
 varImp <- varImp[order(varImp[, 1], decreasing = TRUE), , drop = FALSE]
@@ -219,7 +235,7 @@ featurePlot(x = trainSetPre[, row.names(varImp)[1:3]],
 
 ### Final training on all available data
 
-Having selected randomForest as the best algorithm in this case, we proceed to
+Having selected Random Forest as the best algorithm in this case, we proceed to
 train it again on the full training dataset, in order to gather the best
 possible fit based on all the data we have available.
 
@@ -233,6 +249,9 @@ finalModel <-
 ```
 
 # Appendix
+
+### Submission to Coursera
+
 Code to prepare files for the submission to Coursera for the Practical Machine
 Learning course project.
 
