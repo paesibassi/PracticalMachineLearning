@@ -121,10 +121,11 @@ in the dataset as predictors. We will try different algorithms to compare their
 performance. We will leverage the *caret* package to train them by using
 *10-fold cross-validation*.
 
-```{r models, cache = TRUE, hide = TRUE}
+```{r models, cache = TRUE, hide = TRUE, message = FALSE}
 models <- list()
 fitControl <- trainControl(method = "cv",
-                           number = 10) # >change to 10<
+                           verboseIter = FALSE,
+                           number = 2)
 
 models[["lda"]] <-
   train(classe ~ ., data = trainSetPre, method = "lda", trControl = fitControl)
@@ -144,7 +145,7 @@ We compare the models outcome predicting on the validation dataset and comparing
 the accuracy of the prediction versus the actual *classe* value. The model that
 will yeald the best overall accuracy will be chosen.
 
-```{r compare}
+```{r compare, message = FALSE}
 results <- data.frame(model = names(models), accuracy = NA)
 for (i in seq_along(models)) {
   validPred <- predict(models[[i]], validSetPre) # predictions on validation dataset
@@ -164,9 +165,9 @@ Let's print the other statistics and finally visualize its confusion matrix on
 the validation dataset.
 
 ```{r best}
-testPred <-
-  predict(models[[as.numeric(row.names(best))]],
-          validSetPre) # predictions from the best model
+bestModel <- models[[as.numeric(row.names(best))]]
+validPred <-
+  predict(bestModel, validSetPre) # predictions from the best model
 confmx <- confusionMatrix(validPred, validSetPre$classe)
 print(confmx) # full confusion matrix and statistics
 
@@ -181,9 +182,9 @@ visualize their density in relation with the different outcome levels in order
 to understand their predictive value.
 
 ```{r varImp, cache = TRUE}
-varImp(finalModel) # variables importance in the final model
+varImp(bestModel) # variables importance in the final model
 
-varImp <- varImp(finalModel)$importance
+varImp <- varImp(bestModel)$importance
 varImp <- varImp[order(varImp[, 1], decreasing = TRUE), , drop = FALSE]
 
 # plot a density curve of the three most important features
