@@ -1,9 +1,11 @@
 ---
-title: "Practical Machine Learning - Course Project: Writeup"
+title: 'Practical Machine Learning - Course Project: Writeup'
 author: "Federico Calore"
 date: "15 Dec 2015"
-output: 
-  html_document: 
+output:
+  html_document:
+    toc: yes
+  pdf_document:
     toc: yes
 ---
 
