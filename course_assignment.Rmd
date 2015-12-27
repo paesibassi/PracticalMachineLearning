@@ -121,22 +121,41 @@ in the dataset as predictors. We will try different algorithms to compare their
 performance. We will leverage the *caret* package to train them by using
 *10-fold cross-validation*.
 
-```{r models, cache = TRUE, hide = TRUE, message = FALSE}
+```{r setup}
 models <- list()
 fitControl <- trainControl(method = "cv",
                            verboseIter = FALSE,
                            number = 2)
+# split in different chunks to make caching easier
+```
 
+```{r lda, cache = TRUE}
 models[["lda"]] <-
   train(classe ~ ., data = trainSetPre, method = "lda", trControl = fitControl)
+```
+
+```{r gbm, cache = TRUE}
 models[["gbm"]] <-
-   train(classe ~ ., data = trainSetPre, method = "gbm", trControl = fitControl)
+   train(classe ~ ., data = trainSetPre, method = "gbm",
+         trControl = fitControl, verbose = FALSE)
+```
+
+```{r rpart, cache = TRUE}
 models[["rpart"]] <-
   train(classe ~ ., data = trainSetPre, method = "rpart", trControl = fitControl)
+```
+
+```{r ctree, cache = TRUE, hide = TRUE, message = FALSE}
 models[["ctree"]] <-
   train(classe ~ ., data = trainSetPre, method = "ctree", trControl = fitControl)
+```
+
+```{r svm, cache = TRUE}
 models[["svm"]] <-
   train(classe ~ ., data = trainSetPre, method = "svmLinear", trControl = fitControl)
+```
+
+```{r rf, cache = TRUE, hide = TRUE, message = FALSE, eval=FALSE}
 models[["rf"]] <-
   train(classe ~ ., data = trainSetPre, method = "rf", trControl = fitControl)
 ```
