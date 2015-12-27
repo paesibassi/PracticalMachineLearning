@@ -1,0 +1,6 @@
+.Rproj.user
+.Rhistory
+.RData
+*.Rproj
+course_assignment_cache
+quiz*.R

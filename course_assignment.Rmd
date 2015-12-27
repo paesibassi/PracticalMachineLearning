@@ -1,0 +1,240 @@
+---
+title: "Practical Machine Learning - Course Project: Writeup"
+author: "Federico Calore"
+date: "15 Dec 2015"
+output: 
+  html_document: 
+    toc: yes
+---
+
+# Introduction
+
+### Background
+
+> Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible
+to collect a large amount of data about personal activity relatively 
+inexpensively. In this project, your goal will be to use data from
+accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They
+were asked to perform barbell lifts correctly and incorrectly in 5 different
+ways. More information is available from the [website
+here](http://groupware.les.inf.puc-rio.br/har) (see the section on the Weight
+Lifting Exercise Dataset).
+
+### Goal
+
+> The goal of your project is to predict the manner in which they did the
+exercise. This is the "classe" variable in the training set. You may use any of
+the other variables to predict with.
+
+
+# Data analysis
+
+```{r libraries, message = FALSE, echo = FALSE}
+# load necessary libraries
+library(plyr); library(dplyr)
+library(caret)
+library(ggplot2)
+```
+
+As first thing, after downloading the files, we load the dataset in memory. We
+can check the frequencies of the outcome levels to get the idea of their
+distribution.
+
+```{r load, echo = FALSE}
+trainFile <-
+  "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+trainDest <- "pml-training.csv"
+testFile <-
+  "https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+testDest <-"pml-testing.csv"
+
+# check for files existence and skip download in case
+if (any(!file.exists(trainDest), !file.exists(testDest))) {
+  today <- as.character(Sys.time())
+  print(paste("File downloaded on", today)) # print date and time of download
+  }
+if (!file.exists(trainDest)) {
+  download.file(trainFile, trainDest, method = "curl")
+  }
+if (!file.exists(testDest)) {
+  download.file(testFile, testDest, method = "curl")
+  }
+
+# loads csv data into dataframe
+trainSet <- read.csv(trainDest)
+
+# show frequencies of levels in classe factor variable (outcome)
+table(trainSet$classe)
+```
+
+## Preprocessing
+
+We preprocess the data to prepare a tidy dataset for modeling:
+
+1. remove variables with many NAs
+2. identify and remove unnecessary variables
+3. remove Near Zero-Variance predictors
+3. center and scale all variables
+4. split the data into training and validation
+
+After a quick exploratory analysis, we found that here variables have either no
+NAs or empty values, or about 0.98% of them; the latter are summary variables
+with some statistics for the entire observation window, and happen in
+combination with the value "yes" for the variable "new_window". Also, performing
+an analysis for Near Zero-Variance shows that most of these variables only have
+a handful of significant values, another reason to remove them.
+
+As result of this quick analysis, we will remove all the (100) colums with
+summary statistics, and by this we will get rid of all the NAs in the dataset.
+
+We will also remove the unnecessary descriptive variables (serial IDs, timestamps).
+
+```{r NAs}
+rem <- sapply(trainSet, function(x) {sum(is.na(x) | !(x != ""))/length(x)}) # NAs
+rem[nearZeroVar(trainSet, saveMetrics = T)[, 4]] <- 1 # flag Near Zero-Variance
+rem[1:7] <- 1 # flag timestamp variables 
+trainSet <- trainSet[, !(rem > 0)] # keep only informative and complete columns
+```
+
+We split the training dataset in two parts: 70% will be used for model training,
+and the remaining 30% will be kept apart as a validation dataset, to compare the
+performance of different algorithms.
+Also, we will pre-process the data by centering and scaling all variables.
+
+```{r preprocess}
+set.seed(19780505) # set seed for reproducibility
+inTrain <- createDataPartition(trainSet$classe, p = 0.7, list = FALSE)
+trainingS <- trainSet[inTrain, ]
+validationS <- trainSet[-inTrain, ]
+
+prePr <- preProcess(trainingS, method = c("center", "scale"))
+
+trainSetPre <- predict(prePr, trainingS)
+validSetPre <- predict(prePr, validationS)
+```
+
+## Modeling
+
+We have readied a smaller dataset with 52 predictors and 1 categorical outcome. 
+We build some models with "classe" as the outcome and the other variables left
+in the dataset as predictors. We will try different algorithms to compare their 
+performance. We will leverage the *caret* package to train them by using
+*10-fold cross-validation*.
+
+```{r models, cache = TRUE, hide = TRUE}
+models <- list()
+fitControl <- trainControl(method = "cv",
+                           number = 10) # >change to 10<
+
+models[["lda"]] <-
+  train(classe ~ ., data = trainSetPre, method = "lda", trControl = fitControl)
+models[["gbm"]] <-
+   train(classe ~ ., data = trainSetPre, method = "gbm", trControl = fitControl)
+models[["rpart"]] <-
+  train(classe ~ ., data = trainSetPre, method = "rpart", trControl = fitControl)
+models[["ctree"]] <-
+  train(classe ~ ., data = trainSetPre, method = "ctree", trControl = fitControl)
+models[["svm"]] <-
+  train(classe ~ ., data = trainSetPre, method = "svmLinear", trControl = fitControl)
+models[["rf"]] <-
+  train(classe ~ ., data = trainSetPre, method = "rf", trControl = fitControl)
+```
+
+We compare the models outcome predicting on the validation dataset and comparing
+the accuracy of the prediction versus the actual *classe* value. The model that
+will yeald the best overall accuracy will be chosen.
+
+```{r compare}
+results <- data.frame(model = names(models), accuracy = NA)
+for (i in seq_along(models)) {
+  validPred <- predict(models[[i]], validSetPre) # predictions on validation dataset
+  results[i, 2]<- postResample(validPred, validSetPre$classe)[1] # accuracy and kappa
+}
+print(arrange(results, desc(accuracy))) # list models and accuracy in desc order
+best <- results[results[, 2] == max(results[, 2]),] # best model
+```
+
+From the table above, Random Forest is the contest winner having achieved an
+impressive accuracy of `r best[1,2]` on validation data, which is our estimate
+for the out of sample error.  
+
+### Analysis of the best model
+
+Let's print the other statistics and finally visualize its confusion matrix on
+the validation dataset.
+
+```{r best}
+testPred <-
+  predict(models[[as.numeric(row.names(best))]],
+          validSetPre) # predictions from the best model
+confmx <- confusionMatrix(validPred, validSetPre$classe)
+print(confmx) # full confusion matrix and statistics
+
+ggplot(as.data.frame(confmx$table), aes(x = Prediction, y = Reference, fill = Freq)) +
+  geom_tile() + scale_fill_gradient(low="white") +
+  scale_x_discrete(name="Actual Class") + scale_y_discrete(name="Predicted Class") +
+  labs(title = "Confusion Matrix on Validation data", fill="Frequency")
+```
+
+We can extract the order of importance of the variables in the model and
+visualize their density in relation with the different outcome levels in order
+to understand their predictive value.
+
+```{r varImp, cache = TRUE}
+varImp(finalModel) # variables importance in the final model
+
+varImp <- varImp(finalModel)$importance
+varImp <- varImp[order(varImp[, 1], decreasing = TRUE), , drop = FALSE]
+
+# plot a density curve of the three most important features
+featurePlot(x = trainSetPre[, row.names(varImp)[1:3]],
+            y = trainSetPre$classe,
+            plot = "density",
+            scales = list(x = list(relation="free"),
+                          y = list(relation="free")),
+            adjust = 1.5,
+            pch = "|",
+            auto.key = list(columns = 3))
+```
+
+### Final training on all available data
+
+Having selected randomForest as the best algorithm in this case, we proceed to
+train it again on the full training dataset, in order to gather the best
+possible fit based on all the data we have available.
+
+```{r finalTrain, cache = TRUE, eval = FALSE}
+# this code won't run to save time when compiling the knitr document
+prePr2 <- preProcess(trainSet, method = c("center", "scale"))
+trainSetPre2 <- predict(prePr, trainSet)
+
+finalModel <-
+  train(classe ~ ., data = trainSetPre2, method = "rf", trControl = fitControl)
+```
+
+# Appendix
+Code to prepare files for the submission to Coursera for the Practical Machine
+Learning course project.
+
+```{r submission, eval = FALSE}
+# Please apply the machine learning algorithm you built to each of the 20 test 
+# cases in the testing data set. For each test case you should submit a text
+# file with a single capital letter (A, B, C, D, or E) corresponding to your
+# prediction for the corresponding problem in the test data set.
+
+testSet <- read.csv(testDest)
+testSet <- testSet[, !(rem > 0)] # remove unnecessary columns
+testSetPre2 <- predict(prePr2, testSet) # apply the same preprocessing to test data
+testPred <- predict(finalModel, testSetPre2) # predictions from the tuned model
+
+answers <- as.character(testPred)
+pml_write_files <- function(x){
+  dir.create("answers")
+  for(i in 1:length(x)){
+    filename = paste0("./answers/problem_id_",i,".txt")
+    write.table(x[i], file=filename,
+                quote=FALSE, row.names=FALSE, col.names=FALSE)
+  }
+}
+pml_write_files(answers)
+```
