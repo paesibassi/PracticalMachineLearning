@@ -45,4 +45,7 @@ You will also use your prediction model to predict 20 different test cases.
 Your submission should consist of a link to a Github repo with your R markdown and compiled HTML file describing your analysis.
 You should also apply your machine learning algorithm to the 20 test cases available in the test data above.
 
-Preview the final compiled html report here: http://htmlpreview.github.io/?https://github.com/paesibassi/PracticalMachineLearning/blob/master/course_assignment.html
+Preview the final compiled html report here:
+http://htmlpreview.github.io/?https://github.com/paesibassi/PracticalMachineLearning/blob/master/course_assignment.html
+or here:
+http://paesibassi.github.io/PracticalMachineLearning/course_assignment.html
