@@ -137,43 +137,43 @@ in the dataset as predictors. We want to try different algorithms to compare
 their performance.   
 
 We will leverage the *caret* package to train them by using
-*2-fold cross-validation* (I would use k = 10 but have no time to compile now!).
+*10-fold cross-validation*.
 
 ```{r setup}
 models <- list()
 fitControl <- trainControl(method = "cv",
                            verboseIter = FALSE,
-                           number = 2)
+                           number = 10)
 # split in different chunks to make caching easier
 ```
 
-```{r lda, cache = TRUE}
+```{r lda, cache = TRUE, dependson = "setup"}
 models[["lda"]] <-
   train(classe ~ ., data = trainSetPre, method = "lda", trControl = fitControl)
 ```
 
-```{r gbm, cache = TRUE}
+```{r gbm, cache = TRUE, dependson = "setup"}
 models[["gbm"]] <-
    train(classe ~ ., data = trainSetPre, method = "gbm",
          trControl = fitControl, verbose = FALSE)
 ```
 
-```{r rpart, cache = TRUE}
+```{r rpart, cache = TRUE, dependson = "setup"}
 models[["rpart"]] <-
   train(classe ~ ., data = trainSetPre, method = "rpart", trControl = fitControl)
 ```
 
-```{r ctree, cache = TRUE}
+```{r ctree, cache = TRUE, dependson = "setup"}
 models[["ctree"]] <-
   train(classe ~ ., data = trainSetPre, method = "ctree", trControl = fitControl)
 ```
 
-```{r svm, cache = TRUE}
+```{r svm, cache = TRUE, dependson = "setup"}
 models[["svm"]] <-
   train(classe ~ ., data = trainSetPre, method = "svmLinear", trControl = fitControl)
 ```
 
-```{r rf, cache = TRUE}
+```{r rf, cache = TRUE, dependson = "setup"}
 models[["rf"]] <-
   train(classe ~ ., data = trainSetPre, method = "rf", trControl = fitControl)
 ```
